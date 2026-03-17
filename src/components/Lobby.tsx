@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { getPlayerId, getPlayerName, savePlayerName, generateRoomCode } from '../lib/session'
 
@@ -16,7 +16,14 @@ export function Lobby({ onGameReady }: Props) {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
 
+  // Refy zapobiegają przebudowie subskrypcji przy każdym renderze
+  const nameRef        = useRef(name)
+  const onReadyRef     = useRef(onGameReady)
+  useEffect(() => { nameRef.current    = name },        [name])
+  useEffect(() => { onReadyRef.current = onGameReady }, [onGameReady])
+
   // Nasłuchiwanie na dołączenie drugiego gracza (Realtime)
+  // Deps: tylko gameId – subskrypcja tworzona raz, nie przebudowuje się przy zmianie name/onGameReady
   useEffect(() => {
     if (!gameId) return
 
@@ -30,13 +37,13 @@ export function Lobby({ onGameReady }: Props) {
       }, payload => {
         const updated = payload.new as { status: string; player2_id: string }
         if (updated.status === 'placement') {
-          onGameReady(gameId, getPlayerId(), name.trim(), 'player1', updated.player2_id)
+          onReadyRef.current(gameId, getPlayerId(), nameRef.current.trim(), 'player1', updated.player2_id)
         }
       })
       .subscribe()
 
     return () => { void supabase.removeChannel(channel) }
-  }, [gameId, name, onGameReady])
+  }, [gameId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function createGame() {
     const trimmed = name.trim()
