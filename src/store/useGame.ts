@@ -15,10 +15,19 @@ export interface Shot {
 // Łączna liczba pól zajętych przez flotę
 const TOTAL_SHIP_CELLS = FLEET.reduce((sum, d) => sum + d.size * d.count, 0)
 
+// Ile statków w danej flocie zostało w pełni zatopionych
+function countSunk(ships: PlacedShip[], hitsMap: Map<string, 'hit' | 'miss'>): number {
+  return ships.filter(ship => {
+    const def = FLEET.find(d => d.id === ship.defId)!
+    return shipCells(ship, def.size).every(([r, c]) => hitsMap.get(`${r},${c}`) === 'hit')
+  }).length
+}
+
 export function useGame(gameId: string, myId: string, opponentId: string) {
   const [currentTurn, setCurrentTurn] = useState<string | null>(null)
   const [gameStatus, setGameStatus]   = useState<string>('playing')
   const [winner, setWinner]           = useState<string | null>(null)
+  const [winnerPoints, setWinnerPoints] = useState<number | null>(null)
   const [myShips, setMyShips]         = useState<PlacedShip[]>([])
   const [opponentShips, setOpponentShips] = useState<PlacedShip[]>([])
   const [shots, setShots]             = useState<Shot[]>([])
@@ -27,7 +36,7 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
   // Załaduj pełny stan gry przy starcie
   const loadAll = useCallback(async () => {
     const [{ data: gameData }, { data: boardsData }, { data: shotsData }] = await Promise.all([
-      supabase.from('games').select('current_turn,status,winner').eq('id', gameId).single(),
+      supabase.from('games').select('current_turn,status,winner,winner_points').eq('id', gameId).single(),
       supabase.from('boards').select('player_id,ships').eq('game_id', gameId),
       supabase.from('shots').select('*').eq('game_id', gameId).order('created_at'),
     ])
@@ -35,6 +44,7 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
       setCurrentTurn(gameData.current_turn as string)
       setGameStatus(gameData.status as string)
       setWinner(gameData.winner as string | null)
+      setWinnerPoints((gameData.winner_points as number | null) ?? null)
     }
     if (boardsData) {
       const mine = boardsData.find(b => b.player_id === myId)
@@ -70,10 +80,11 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
         event: 'UPDATE', schema: 'public', table: 'games',
         filter: `id=eq.${gameId}`,
       }, payload => {
-        const g = payload.new as { current_turn: string; status: string; winner: string | null }
+        const g = payload.new as { current_turn: string; status: string; winner: string | null; winner_points: number | null }
         setCurrentTurn(g.current_turn)
         setGameStatus(g.status)
         setWinner(g.winner)
+        setWinnerPoints(g.winner_points ?? null)
       })
       .subscribe()
     return () => { void supabase.removeChannel(ch) }
@@ -104,9 +115,24 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
     // Sprawdź koniec gry
     const myHitsAfter = shots.filter(s => s.player_id === myId && s.result === 'hit').length + (isHit ? 1 : 0)
     if (myHitsAfter >= TOTAL_SHIP_CELLS) {
+      // Oblicz punkty: moje zatopione statki − zatopione przez przeciwnika
+      const allShots = [...shots, { player_id: myId, row, col, result }]
+      const myHitsMap  = new Map(allShots.filter(s => s.player_id === myId).map(s => [`${s.row},${s.col}`, s.result] as const))
+      const oppHitsMap = new Map(allShots.filter(s => s.player_id === opponentId).map(s => [`${s.row},${s.col}`, s.result] as const))
+      const mySunk  = countSunk(opponentShips, myHitsMap)
+      const oppSunk = countSunk(myShips,       oppHitsMap)
+      const points  = Math.max(1, mySunk - oppSunk)
+
       await supabase.from('games')
-        .update({ status: 'finished', winner: myId, current_turn: null })
+        .update({ status: 'finished', winner: myId, winner_points: points, current_turn: null })
         .eq('id', gameId)
+
+      // Zaktualizuj rankingi przez funkcję bazy
+      await supabase.rpc('update_player_scores', {
+        p_winner_id: myId,
+        p_loser_id:  opponentId,
+        p_points:    points,
+      })
       return
     }
 
@@ -159,7 +185,7 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
   const totalShots = shots.filter(s => s.player_id === myId).length
 
   return {
-    loading, isMyTurn, gameStatus, winner,
+    loading, isMyTurn, gameStatus, winner, winnerPoints,
     myShips, opponentShips,
     myShots, opponentShots,
     sunkOpponentCells, sunkMyCells,

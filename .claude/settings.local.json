@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/FilipKipiel/AppData/Roaming/**)",
+      "Read(//c/Users/FilipKipiel/AppData/Local/**)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs\")",
+      "Bash(npm --version)",
+      "Bash(cmd.exe /c \"npm --version\")",
+      "Bash(cmd.exe /c \"node --version && npm --version\")",
+      "Bash(cmd.exe /c \"where npm 2>&1\")",
+      "Bash(cmd.exe /c \"where npm\")",
+      "Bash(cmd.exe /c \"node --version & npm --version & echo DONE\")",
+      "Bash(powershell.exe -Command \"node --version; npm --version\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\npm.cmd'' --version\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\FilipKipiel\\\\Desktop\\\\statki''; & ''C:\\\\Program Files\\\\nodejs\\\\npm.cmd'' create vite@latest . -- --template react-ts 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\FilipKipiel\\\\Desktop\\\\statki''; echo ''2'' | & ''C:\\\\Program Files\\\\nodejs\\\\npx.cmd'' create-vite@latest . --template react-ts 2>&1\")",
+      "Bash(powershell.exe -Command \":*)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\FilipKipiel\\\\Desktop\\\\statki''; & ''C:\\\\Program Files\\\\nodejs\\\\npx.cmd'' tsc --noEmit 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\FilipKipiel\\\\Desktop\\\\statki''; & ''C:\\\\Program Files\\\\nodejs\\\\npm.cmd'' run build 2>&1\")",
+      "mcp__claude_ai_Vercel__list_teams",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "mcp__claude_ai_Supabase__get_project_url",
+      "mcp__claude_ai_Supabase__get_publishable_keys",
+      "mcp__claude_ai_Vercel__list_projects",
+      "mcp__claude_ai_Vercel__get_deployment",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\npm.cmd'' run build 2>&1\")"
+    ]
+  }
+}

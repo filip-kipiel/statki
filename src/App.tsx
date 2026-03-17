@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
+import { AuthPage } from './components/AuthPage'
+import { HomePage } from './components/HomePage'
 import { Lobby } from './components/Lobby'
 import type { PlayerRole } from './components/Lobby'
 import { Board } from './components/Board'
@@ -8,22 +10,39 @@ import { GameView } from './components/GameView'
 import { usePlacement } from './store/usePlacement'
 import type { PlacedShip } from './store/boardStore'
 
-type Phase = 'lobby' | 'placement' | 'waiting_opponent' | 'playing'
+type Phase = 'auth' | 'home' | 'lobby' | 'placement' | 'waiting_opponent' | 'playing'
 
 interface GameSession {
-  gameId: string
-  playerId: string
-  playerName: string
-  role: PlayerRole
-  opponentId: string
+  gameId:      string
+  playerId:    string
+  playerName:  string
+  role:        PlayerRole
+  opponentId:  string
 }
 
 export default function App() {
-  const [phase, setPhase]     = useState<Phase>('lobby')
-  const [session, setSession] = useState<GameSession | null>(null)
+  const [phase, setPhase]       = useState<Phase>('auth')
+  const [userId, setUserId]     = useState<string | null>(null)
+  const [username, setUsername] = useState<string>('')
+  const [session, setSession]   = useState<GameSession | null>(null)
   const placement = usePlacement()
 
-  // Nasłuchiwanie na status 'playing' gdy czekamy na przeciwnika (faza waiting_opponent)
+  // Sprawdź istniejącą sesję Supabase Auth przy starcie
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        const uid = data.session.user.id
+        supabase.from('profiles').select('username').eq('id', uid).single()
+          .then(({ data: profile }) => {
+            setUserId(uid)
+            setUsername(profile?.username ?? '')
+            setPhase('home')
+          })
+      }
+    })
+  }, [])
+
+  // Nasłuchiwanie na status 'playing' gdy czekamy na gotowość przeciwnika
   useEffect(() => {
     if (phase !== 'waiting_opponent' || !session) return
 
@@ -41,7 +60,23 @@ export default function App() {
     return () => { void supabase.removeChannel(ch) }
   }, [phase, session])
 
-  // Callback z Lobby – oboje gracze wiedzą kto jest kim
+  // --- Auth ---
+  function handleAuth(uid: string, uname: string) {
+    setUserId(uid)
+    setUsername(uname)
+    setPhase('home')
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    setUserId(null)
+    setUsername('')
+    setSession(null)
+    placement.reset()
+    setPhase('auth')
+  }
+
+  // --- Lobby callback – oboje gracze przechodzą do rozstawiania ---
   function handleGameReady(
     gameId: string, playerId: string, playerName: string,
     role: PlayerRole, opponentId: string,
@@ -51,44 +86,62 @@ export default function App() {
     setPhase('placement')
   }
 
-  // Kliknięcie GOTOWY w panelu statków
+  // --- GOTOWY: zapis planszy i uruchomienie gry ---
   async function handleReady(placed: PlacedShip[]) {
     if (!session) return
 
-    // Zapisz planszę w bazie
     const { error: boardErr } = await supabase.from('boards').upsert({
-      game_id: session.gameId,
+      game_id:   session.gameId,
       player_id: session.playerId,
-      ships: placed,
-      ready: true,
+      ships:     placed,
+      ready:     true,
     })
     if (boardErr) { console.error('[App] Błąd zapisu planszy:', boardErr); return }
 
-    // Sprawdź czy przeciwnik też już gotowy
     const { data: oppBoard } = await supabase
-      .from('boards')
-      .select('ready')
+      .from('boards').select('ready')
       .eq('game_id', session.gameId)
       .eq('player_id', session.opponentId)
       .eq('ready', true)
       .maybeSingle()
 
     if (oppBoard) {
-      // Obaj gotowi – uruchom grę (player1 zaczyna)
       const firstTurn = session.role === 'player1' ? session.playerId : session.opponentId
       await supabase.from('games')
         .update({ status: 'playing', current_turn: firstTurn })
         .eq('id', session.gameId)
       setPhase('playing')
     } else {
-      // Czekamy na przeciwnika – subskrypcja w useEffect
       setPhase('waiting_opponent')
     }
   }
 
+  // --- AUTH ---
+  if (phase === 'auth') {
+    return <AuthPage onAuth={handleAuth} />
+  }
+
+  // --- STRONA GŁÓWNA z rankingiem ---
+  if (phase === 'home') {
+    return (
+      <HomePage
+        username={username}
+        onNewGame={() => setPhase('lobby')}
+        onSignOut={() => void handleSignOut()}
+      />
+    )
+  }
+
   // --- LOBBY ---
   if (phase === 'lobby') {
-    return <Lobby onGameReady={handleGameReady} />
+    return (
+      <Lobby
+        userId={userId!}
+        defaultName={username}
+        onGameReady={handleGameReady}
+        onBack={() => setPhase('home')}
+      />
+    )
   }
 
   // --- ROZSTAWIANIE STATKÓW ---
@@ -101,7 +154,6 @@ export default function App() {
             {session?.playerName} · Rozstaw swoją flotę
           </p>
         </div>
-
         <div className="flex gap-8 items-start">
           <Board
             occupiedCells={placement.getOccupiedSet()}
@@ -120,7 +172,7 @@ export default function App() {
             onToggleOrientation={placement.toggleOrientation}
             onRandomize={placement.randomize}
             onReset={placement.reset}
-            onReady={() => handleReady(placement.placed)}
+            onReady={() => void handleReady(placement.placed)}
           />
         </div>
       </div>
@@ -159,7 +211,7 @@ export default function App() {
       onBackToLobby={() => {
         setSession(null)
         placement.reset()
-        setPhase('lobby')
+        setPhase('home')
       }}
     />
   )

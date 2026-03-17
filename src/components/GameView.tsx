@@ -19,7 +19,7 @@ function formatDuration(seconds: number): string {
 
 export function GameView({ gameId, myId, opponentId, myName, onBackToLobby }: Props) {
   const {
-    loading, isMyTurn, gameStatus, winner,
+    loading, isMyTurn, gameStatus, winner, winnerPoints,
     myShips, opponentShips,
     myShots, opponentShots,
     sunkOpponentCells, sunkMyCells,
@@ -71,6 +71,14 @@ export function GameView({ gameId, myId, opponentId, myName, onBackToLobby }: Pr
           <h1 className={`text-5xl font-bold ${iWon ? 'text-yellow-400' : 'text-red-400'}`}>
             {iWon ? 'Wygrałeś!' : 'Przegrałeś!'}
           </h1>
+
+          {/* Punkty */}
+          {iWon && winnerPoints != null && (
+            <div className="flex items-center gap-2 px-6 py-3 bg-yellow-900/30 border border-yellow-700/50 rounded-xl">
+              <span className="text-2xl">⭐</span>
+              <span className="text-yellow-300 font-bold text-xl">+{winnerPoints} {winnerPoints === 1 ? 'punkt' : winnerPoints < 5 ? 'punkty' : 'punktów'}</span>
+            </div>
+          )}
 
           {/* Statystyki */}
           <div className="w-full grid grid-cols-3 gap-3 mt-2">
