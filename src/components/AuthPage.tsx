@@ -51,7 +51,14 @@ export function AuthPage({ onAuth }: Props) {
       email: email.trim(), password,
     })
 
-    if (err) { setError('Błędny email lub hasło'); setLoading(false); return }
+    if (err) {
+      if (err.message.includes('Email not confirmed')) {
+        setError('Potwierdź swój email – sprawdź skrzynkę i kliknij link aktywacyjny')
+      } else {
+        setError('Błędny email lub hasło')
+      }
+      setLoading(false); return
+    }
 
     const { data: profile } = await supabase
       .from('profiles')
