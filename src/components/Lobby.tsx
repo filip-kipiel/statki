@@ -121,6 +121,8 @@ export function Lobby({ onGameReady }: Props) {
       .eq('status', 'waiting')
       .single()
 
+    console.log('[joinGame] found game:', game, 'error:', findErr)
+
     if (findErr || !game) {
       setError('Nie znaleziono gry – sprawdź kod i spróbuj ponownie')
       setLoading(false)
@@ -128,10 +130,12 @@ export function Lobby({ onGameReady }: Props) {
     }
 
     // Dołącz do gry i uruchom fazę rozstawiania
-    const { error: updateErr } = await supabase
+    const { error: updateErr, count } = await supabase
       .from('games')
       .update({ player2_id: playerId, status: 'placement' })
       .eq('id', game.id)
+
+    console.log('[joinGame] update result – error:', updateErr, 'count:', count, 'gameId:', game.id)
 
     if (updateErr) {
       setError('Nie udało się dołączyć – spróbuj ponownie')
