@@ -40,7 +40,7 @@ export function HomePage({ username, isAdmin, onNewGame, onAdmin, onSignOut }: P
   const medals = ['🥇', '🥈', '🥉']
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center p-6 gap-6 max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center p-6 gap-6 max-w-4xl mx-auto w-full">
 
       {/* Nagłówek */}
       <div className="w-full flex items-center justify-between pt-2">
