@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { AuthPage } from './components/AuthPage'
 import { HomePage } from './components/HomePage'
+import { AdminPanel } from './components/AdminPanel'
 import { Lobby } from './components/Lobby'
 import type { PlayerRole } from './components/Lobby'
 import { Board } from './components/Board'
@@ -10,7 +11,7 @@ import { GameView } from './components/GameView'
 import { usePlacement } from './store/usePlacement'
 import type { PlacedShip } from './store/boardStore'
 
-type Phase = 'auth' | 'home' | 'lobby' | 'placement' | 'waiting_opponent' | 'playing'
+type Phase = 'auth' | 'home' | 'admin' | 'lobby' | 'placement' | 'waiting_opponent' | 'playing'
 
 interface GameSession {
   gameId:      string
@@ -24,6 +25,7 @@ export default function App() {
   const [phase, setPhase]       = useState<Phase>('auth')
   const [userId, setUserId]     = useState<string | null>(null)
   const [username, setUsername] = useState<string>('')
+  const [isAdmin, setIsAdmin]   = useState(false)
   const [session, setSession]   = useState<GameSession | null>(null)
   const placement = usePlacement()
 
@@ -32,10 +34,11 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         const uid = data.session.user.id
-        supabase.from('profiles').select('username').eq('id', uid).single()
+        supabase.from('profiles').select('username, is_admin').eq('id', uid).single()
           .then(({ data: profile }) => {
             setUserId(uid)
             setUsername(profile?.username ?? '')
+            setIsAdmin(profile?.is_admin ?? false)
             setPhase('home')
           })
       }
@@ -61,9 +64,11 @@ export default function App() {
   }, [phase, session])
 
   // --- Auth ---
-  function handleAuth(uid: string, uname: string) {
+  async function handleAuth(uid: string, uname: string) {
     setUserId(uid)
     setUsername(uname)
+    const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', uid).single()
+    setIsAdmin(profile?.is_admin ?? false)
     setPhase('home')
   }
 
@@ -71,6 +76,7 @@ export default function App() {
     await supabase.auth.signOut()
     setUserId(null)
     setUsername('')
+    setIsAdmin(false)
     setSession(null)
     placement.reset()
     setPhase('auth')
@@ -118,7 +124,12 @@ export default function App() {
 
   // --- AUTH ---
   if (phase === 'auth') {
-    return <AuthPage onAuth={handleAuth} />
+    return <AuthPage onAuth={(uid, uname) => void handleAuth(uid, uname)} />
+  }
+
+  // --- PANEL ADMINA ---
+  if (phase === 'admin') {
+    return <AdminPanel onBack={() => setPhase('home')} />
   }
 
   // --- STRONA GŁÓWNA z rankingiem ---
@@ -126,7 +137,9 @@ export default function App() {
     return (
       <HomePage
         username={username}
+        isAdmin={isAdmin}
         onNewGame={() => setPhase('lobby')}
+        onAdmin={() => setPhase('admin')}
         onSignOut={() => void handleSignOut()}
       />
     )

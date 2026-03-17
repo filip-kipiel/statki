@@ -10,11 +10,13 @@ interface Profile {
 
 interface Props {
   username: string
+  isAdmin:  boolean
   onNewGame: () => void
+  onAdmin:   () => void
   onSignOut: () => void
 }
 
-export function HomePage({ username, onNewGame, onSignOut }: Props) {
+export function HomePage({ username, isAdmin, onNewGame, onAdmin, onSignOut }: Props) {
   const [showBoard, setShowBoard] = useState(false)
   const [board, setBoard]         = useState<Profile[]>([])
   const [loading, setLoading]     = useState(false)
@@ -69,6 +71,15 @@ export function HomePage({ username, onNewGame, onSignOut }: Props) {
         >
           {showBoard ? '▲ Ukryj ranking' : '🏆 POKAŻ LEADERBOARD'}
         </button>
+
+        {isAdmin && (
+          <button
+            onClick={onAdmin}
+            className="w-full py-3 bg-gray-900 hover:bg-gray-800 border border-gray-700 text-gray-400 hover:text-white font-medium text-sm rounded-xl transition-all"
+          >
+            🛡 Panel Admina
+          </button>
+        )}
       </div>
 
       {/* Leaderboard – widoczny po kliknięciu */}
