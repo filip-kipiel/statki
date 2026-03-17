@@ -5,7 +5,7 @@ import { getPlayerId, getPlayerName, savePlayerName, generateRoomCode } from '..
 export type PlayerRole = 'player1' | 'player2'
 
 interface Props {
-  onGameReady: (gameId: string, playerId: string, playerName: string, role: PlayerRole) => void
+  onGameReady: (gameId: string, playerId: string, playerName: string, role: PlayerRole, opponentId: string) => void
 }
 
 export function Lobby({ onGameReady }: Props) {
@@ -28,9 +28,9 @@ export function Lobby({ onGameReady }: Props) {
         table: 'games',
         filter: `id=eq.${gameId}`,
       }, payload => {
-        const updated = payload.new as { status: string }
+        const updated = payload.new as { status: string; player2_id: string }
         if (updated.status === 'placement') {
-          onGameReady(gameId, getPlayerId(), name.trim(), 'player1')
+          onGameReady(gameId, getPlayerId(), name.trim(), 'player1', updated.player2_id)
         }
       })
       .subscribe()
@@ -79,7 +79,7 @@ export function Lobby({ onGameReady }: Props) {
     // Znajdź oczekującą grę po kodzie
     const { data: game, error: findErr } = await supabase
       .from('games')
-      .select('id, status')
+      .select('id, status, player1_id')
       .eq('code', code)
       .eq('status', 'waiting')
       .single()
@@ -102,7 +102,7 @@ export function Lobby({ onGameReady }: Props) {
       return
     }
 
-    onGameReady(game.id as string, playerId, trimmed, 'player2')
+    onGameReady(game.id as string, playerId, trimmed, 'player2', game.player1_id as string)
   }
 
   return (
