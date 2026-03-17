@@ -7,6 +7,7 @@ interface Props {
   ships: PlacedShip[]
   showShips: boolean                          // true = moja plansza, false = plansza przeciwnika
   shots: Map<string, 'hit' | 'miss'>          // strzały na tę planszę
+  sunkCells?: Set<string>                     // pola zatopionych statków
   isInteractive: boolean                      // czy można klikać
   onShoot?: (row: number, col: number) => void
 }
@@ -26,24 +27,27 @@ function cellClass(
   key: string,
   shipSet: Set<string>,
   shots: Map<string, 'hit' | 'miss'>,
+  sunkCells: Set<string>,
   showShips: boolean,
   interactive: boolean,
 ): string {
-  const base = 'w-9 h-9 flex items-center justify-center border border-blue-900 select-none transition-colors duration-100 text-sm rounded-sm'
+  const base = 'w-9 h-9 flex items-center justify-center border select-none transition-colors duration-100 text-sm rounded-sm'
+
+  // Zatopiony statek – ciemnopomarańczowe tło
+  if (sunkCells.has(key)) return `${base} bg-orange-800 border-orange-600 cursor-default`
 
   const shotResult = shots.get(key)
-  if (shotResult === 'hit')  return `${base} bg-red-600 cursor-default`
-  if (shotResult === 'miss') return `${base} bg-slate-200 text-slate-500 cursor-default`
+  if (shotResult === 'hit')  return `${base} bg-red-600 border-red-800 cursor-default`
+  if (shotResult === 'miss') return `${base} bg-slate-200 border-slate-300 text-slate-500 cursor-default`
 
   const hasShip = shipSet.has(key)
+  if (showShips && hasShip) return `${base} bg-gray-500 border-gray-600 cursor-default`
 
-  if (showShips && hasShip) return `${base} bg-gray-500 cursor-default`
-
-  if (interactive) return `${base} bg-blue-500 hover:bg-blue-300 cursor-crosshair`
-  return `${base} bg-blue-500 cursor-default`
+  if (interactive) return `${base} bg-blue-500 border-blue-900 hover:bg-blue-300 cursor-crosshair`
+  return `${base} bg-blue-500 border-blue-900 cursor-default`
 }
 
-export function GameBoard({ label, ships, showShips, shots, isInteractive, onShoot }: Props) {
+export function GameBoard({ label, ships, showShips, shots, sunkCells = new Set(), isInteractive, onShoot }: Props) {
   const shipSet = buildShipSet(ships)
 
   return (
@@ -64,14 +68,16 @@ export function GameBoard({ label, ships, showShips, shots, isInteractive, onSho
             {COL_LABELS.map((_, ci) => {
               const key = `${ri},${ci}`
               const shot = shots.get(key)
+              const isSunk = sunkCells.has(key)
               return (
                 <div
                   key={ci}
-                  className={cellClass(key, shipSet, shots, showShips, isInteractive && !shot)}
+                  className={cellClass(key, shipSet, shots, sunkCells, showShips, isInteractive && !shot)}
                   onClick={() => isInteractive && !shot && onShoot?.(ri, ci)}
                 >
-                  {shot === 'hit'  && <span className="text-white text-xs">💥</span>}
-                  {shot === 'miss' && <span className="text-slate-400 font-bold text-xs">·</span>}
+                  {isSunk                    && <span className="text-orange-300 text-xs">☠</span>}
+                  {!isSunk && shot === 'hit'  && <span className="text-white text-xs">💥</span>}
+                  {!isSunk && shot === 'miss' && <span className="text-slate-400 font-bold text-xs">·</span>}
                 </div>
               )
             })}

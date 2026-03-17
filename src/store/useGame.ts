@@ -129,10 +129,41 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
     shots.filter(s => s.player_id === opponentId).map(s => [`${s.row},${s.col}`, s.result] as const)
   )
 
+  // Zatopione statki: wszystkie pola statku trafione
+  function getSunkCells(ships: PlacedShip[], hitsMap: Map<string, 'hit' | 'miss'>): Set<string> {
+    const sunk = new Set<string>()
+    for (const ship of ships) {
+      const def = FLEET.find(d => d.id === ship.defId)!
+      const cells = shipCells(ship, def.size)
+      if (cells.every(([r, c]) => hitsMap.get(`${r},${c}`) === 'hit')) {
+        cells.forEach(([r, c]) => sunk.add(`${r},${c}`))
+      }
+    }
+    return sunk
+  }
+
+  // Pola zatopionych statków przeciwnika (moje trafienia)
+  const sunkOpponentCells = getSunkCells(opponentShips, myShots)
+  // Pola moich zatopionych statków (trafienia przeciwnika)
+  const sunkMyCells = getSunkCells(myShips, opponentShots)
+
+  // Liczba zatopionych statków (do wyświetlenia)
+  const sunkOpponentCount = FLEET.reduce((acc, def) => {
+    const count = opponentShips
+      .filter(s => s.defId === def.id)
+      .filter(ship => shipCells(ship, def.size).every(([r, c]) => myShots.get(`${r},${c}`) === 'hit'))
+      .length
+    return acc + count
+  }, 0)
+
+  const totalShots = shots.filter(s => s.player_id === myId).length
+
   return {
     loading, isMyTurn, gameStatus, winner,
     myShips, opponentShips,
     myShots, opponentShots,
+    sunkOpponentCells, sunkMyCells,
+    sunkOpponentCount, totalShots,
     shoot,
   }
 }
