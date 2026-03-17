@@ -22,27 +22,51 @@ export function Lobby({ onGameReady }: Props) {
   useEffect(() => { nameRef.current    = name },        [name])
   useEffect(() => { onReadyRef.current = onGameReady }, [onGameReady])
 
-  // Nasłuchiwanie na dołączenie drugiego gracza (Realtime)
-  // Deps: tylko gameId – subskrypcja tworzona raz, nie przebudowuje się przy zmianie name/onGameReady
+  // Nasłuchiwanie na dołączenie drugiego gracza – dual-track: Realtime + polling
   useEffect(() => {
     if (!gameId) return
 
+    let done = false
+
+    // Przejście wywoływane tylko raz (zabezpieczenie przed podwójnym wywołaniem)
+    function transition(player2Id: string) {
+      if (done) return
+      done = true
+      onReadyRef.current(gameId!, getPlayerId(), nameRef.current.trim(), 'player1', player2Id)
+    }
+
+    // Realtime – bez filtra (filtry UUID bywają zawodne), sprawdzamy id po stronie klienta
     const channel = supabase
       .channel(`lobby-${gameId}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'games',
-        filter: `id=eq.${gameId}`,
       }, payload => {
-        const updated = payload.new as { status: string; player2_id: string }
-        if (updated.status === 'placement') {
-          onReadyRef.current(gameId, getPlayerId(), nameRef.current.trim(), 'player1', updated.player2_id)
+        const g = payload.new as { id: string; status: string; player2_id: string }
+        if (g.id === gameId && g.status === 'placement' && g.player2_id) {
+          transition(g.player2_id)
         }
       })
       .subscribe()
 
-    return () => { void supabase.removeChannel(channel) }
+    // Polling co 2s jako niezawodny fallback
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from('games')
+        .select('status, player2_id')
+        .eq('id', gameId)
+        .single()
+      if (data?.status === 'placement' && data.player2_id) {
+        transition(data.player2_id as string)
+      }
+    }, 2000)
+
+    return () => {
+      done = true
+      clearInterval(poll)
+      void supabase.removeChannel(channel)
+    }
   }, [gameId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function createGame() {
