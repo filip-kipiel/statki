@@ -25,17 +25,18 @@ export function Lobby({ onGameReady }: Props) {
   // Nasłuchiwanie na dołączenie drugiego gracza – dual-track: Realtime + polling
   useEffect(() => {
     if (!gameId) return
+    console.log('[Lobby] useEffect uruchomiony, gameId:', gameId)
 
     let done = false
 
-    // Przejście wywoływane tylko raz (zabezpieczenie przed podwójnym wywołaniem)
-    function transition(player2Id: string) {
+    function transition(player2Id: string, source: string) {
       if (done) return
       done = true
+      console.log('[Lobby] transition() via', source, 'player2Id:', player2Id)
       onReadyRef.current(gameId!, getPlayerId(), nameRef.current.trim(), 'player1', player2Id)
     }
 
-    // Realtime – bez filtra (filtry UUID bywają zawodne), sprawdzamy id po stronie klienta
+    // Realtime bez filtra
     const channel = supabase
       .channel(`lobby-${gameId}`)
       .on('postgres_changes', {
@@ -43,26 +44,31 @@ export function Lobby({ onGameReady }: Props) {
         schema: 'public',
         table: 'games',
       }, payload => {
+        console.log('[Lobby] Realtime UPDATE:', payload.new)
         const g = payload.new as { id: string; status: string; player2_id: string }
         if (g.id === gameId && g.status === 'placement' && g.player2_id) {
-          transition(g.player2_id)
+          transition(g.player2_id, 'realtime')
         }
       })
-      .subscribe()
+      .subscribe((status) => {
+        console.log('[Lobby] Realtime subscribe status:', status)
+      })
 
-    // Polling co 2s jako niezawodny fallback
+    // Polling co 2s
     const poll = setInterval(async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('games')
         .select('status, player2_id')
         .eq('id', gameId)
         .single()
+      console.log('[Lobby] poll:', data, error)
       if (data?.status === 'placement' && data.player2_id) {
-        transition(data.player2_id as string)
+        transition(data.player2_id as string, 'polling')
       }
     }, 2000)
 
     return () => {
+      console.log('[Lobby] cleanup gameId:', gameId)
       done = true
       clearInterval(poll)
       void supabase.removeChannel(channel)
