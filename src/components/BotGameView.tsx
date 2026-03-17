@@ -45,7 +45,7 @@ export function BotGameView({ myShips, difficulty, myName, onBack }: Props) {
   }, [gameStatus])
 
   // Timer tury (30s)
-  const TURN_SECONDS = 30
+  const TURN_SECONDS = 60
   const [turnTimer, setTurnTimer] = useState(TURN_SECONDS)
   const turnTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   useEffect(() => {

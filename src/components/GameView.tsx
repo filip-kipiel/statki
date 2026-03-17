@@ -44,7 +44,7 @@ export function GameView({ gameId, myId, opponentId, myName, opponentName, onBac
   }, [gameStatus])
 
   // Timer tury (30s) – aktywny tylko gdy to moja tura
-  const TURN_SECONDS = 30
+  const TURN_SECONDS = 60
   const [turnTimer, setTurnTimer] = useState(TURN_SECONDS)
   const turnTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   useEffect(() => {
