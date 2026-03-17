@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import type { BotDifficulty } from '../store/useBotGame'
 
 interface Profile {
   username:     string
@@ -9,17 +10,19 @@ interface Profile {
 }
 
 interface Props {
-  username: string
-  isAdmin:  boolean
-  onNewGame: () => void
-  onAdmin:   () => void
-  onSignOut: () => void
+  username:   string
+  isAdmin:    boolean
+  onNewGame:  () => void
+  onBotGame:  (difficulty: BotDifficulty) => void
+  onAdmin:    () => void
+  onSignOut:  () => void
 }
 
-export function HomePage({ username, isAdmin, onNewGame, onAdmin, onSignOut }: Props) {
-  const [showBoard, setShowBoard] = useState(false)
-  const [board, setBoard]         = useState<Profile[]>([])
-  const [loading, setLoading]     = useState(false)
+export function HomePage({ username, isAdmin, onNewGame, onBotGame, onAdmin, onSignOut }: Props) {
+  const [showBoard,    setShowBoard]    = useState(false)
+  const [board,        setBoard]        = useState<Profile[]>([])
+  const [loading,      setLoading]      = useState(false)
+  const [showBotPicker, setShowBotPicker] = useState(false)
 
   async function loadBoard() {
     setLoading(true)
@@ -56,14 +59,44 @@ export function HomePage({ username, isAdmin, onNewGame, onAdmin, onSignOut }: P
         </button>
       </div>
 
-      {/* Dwa główne przyciski */}
+      {/* Główne przyciski */}
       <div className="w-full flex flex-col gap-3 mt-4">
         <button
           onClick={onNewGame}
           className="w-full py-5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xl rounded-2xl transition-all shadow-lg shadow-blue-900/30"
         >
-          ⚔️ ZAGRAJ
+          ⚔️ ZAGRAJ Z GRACZEM
         </button>
+
+        {/* Przycisk bota z pickerem trudności */}
+        <div className="w-full flex flex-col gap-2">
+          <button
+            onClick={() => setShowBotPicker(v => !v)}
+            className="w-full py-4 bg-gray-700 hover:bg-gray-600 active:scale-95 text-white font-bold text-lg rounded-2xl transition-all"
+          >
+            {showBotPicker ? '▲ Anuluj' : '🤖 ZAGRAJ Z BOTEM'}
+          </button>
+
+          {showBotPicker && (
+            <div className="w-full flex flex-col gap-2 p-3 bg-gray-800/80 rounded-xl border border-gray-700">
+              <p className="text-gray-400 text-xs uppercase tracking-wide text-center mb-1">Wybierz poziom trudności</p>
+              {([
+                ['easy',   '🟢 Łatwy',   'Bot strzela losowo'],
+                ['medium', '🟡 Średni',  'Co 4. strzał pewne trafienie'],
+                ['hard',   '🔴 Trudny',  'Co 2. strzał pewne trafienie'],
+              ] as const).map(([diff, label, desc]) => (
+                <button
+                  key={diff}
+                  onClick={() => { setShowBotPicker(false); onBotGame(diff) }}
+                  className="w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 active:scale-95 rounded-xl transition-all text-left flex items-center gap-3"
+                >
+                  <span className="font-bold text-white text-sm">{label}</span>
+                  <span className="text-gray-400 text-xs">{desc}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={toggleBoard}

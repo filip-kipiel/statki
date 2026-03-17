@@ -8,10 +8,12 @@ import type { PlayerRole } from './components/Lobby'
 import { Board } from './components/Board'
 import { ShipPanel } from './components/ShipPanel'
 import { GameView } from './components/GameView'
+import { BotGameView } from './components/BotGameView'
 import { usePlacement } from './store/usePlacement'
 import type { PlacedShip } from './store/boardStore'
+import type { BotDifficulty } from './store/useBotGame'
 
-type Phase = 'auth' | 'home' | 'admin' | 'lobby' | 'placement' | 'waiting_opponent' | 'playing'
+type Phase = 'auth' | 'home' | 'admin' | 'lobby' | 'placement' | 'waiting_opponent' | 'playing' | 'bot'
 
 interface GameSession {
   gameId:      string
@@ -22,11 +24,14 @@ interface GameSession {
 }
 
 export default function App() {
-  const [phase, setPhase]       = useState<Phase>('auth')
-  const [userId, setUserId]     = useState<string | null>(null)
-  const [username, setUsername] = useState<string>('')
-  const [isAdmin, setIsAdmin]   = useState(false)
-  const [session, setSession]   = useState<GameSession | null>(null)
+  const [phase, setPhase]           = useState<Phase>('auth')
+  const [userId, setUserId]         = useState<string | null>(null)
+  const [username, setUsername]     = useState<string>('')
+  const [isAdmin, setIsAdmin]       = useState(false)
+  const [session, setSession]       = useState<GameSession | null>(null)
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('easy')
+  const [isBotGame,     setIsBotGame]     = useState(false)
+  const [myPlacedShips, setMyPlacedShips] = useState<PlacedShip[]>([])
   const placement = usePlacement()
 
   // Sprawdź istniejącą sesję Supabase Auth przy starcie
@@ -94,6 +99,13 @@ export default function App() {
 
   // --- GOTOWY: zapis planszy i uruchomienie gry ---
   async function handleReady(placed: PlacedShip[]) {
+    // Tryb bota – bez Supabase, od razu do gry
+    if (isBotGame) {
+      setMyPlacedShips(placed)
+      setPhase('bot')
+      return
+    }
+
     if (!session) return
 
     const { error: boardErr } = await supabase.from('boards').upsert({
@@ -138,7 +150,13 @@ export default function App() {
       <HomePage
         username={username}
         isAdmin={isAdmin}
-        onNewGame={() => setPhase('lobby')}
+        onNewGame={() => { setIsBotGame(false); setPhase('lobby') }}
+        onBotGame={(diff) => {
+          setBotDifficulty(diff)
+          setIsBotGame(true)
+          placement.reset()
+          setPhase('placement')
+        }}
         onAdmin={() => setPhase('admin')}
         onSignOut={() => void handleSignOut()}
       />
@@ -211,6 +229,22 @@ export default function App() {
           </button>
         </div>
       </div>
+    )
+  }
+
+  // --- GRA Z BOTEM ---
+  if (phase === 'bot') {
+    return (
+      <BotGameView
+        myShips={myPlacedShips}
+        difficulty={botDifficulty}
+        myName={username}
+        onBack={() => {
+          setIsBotGame(false)
+          placement.reset()
+          setPhase('home')
+        }}
+      />
     )
   }
 
