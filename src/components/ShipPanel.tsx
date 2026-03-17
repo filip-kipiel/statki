@@ -14,12 +14,11 @@ interface Props {
 }
 
 // Wizualizacja długości statku jako kresek
-function ShipShape({ size, horizontal }: { size: number; horizontal: boolean }) {
-  const cells = Array.from({ length: size })
+function ShipShape({ size }: { size: number }) {
   return (
-    <div className={`flex ${horizontal ? 'flex-row' : 'flex-col'} gap-0.5`}>
-      {cells.map((_, i) => (
-        <div key={i} className="w-4 h-4 bg-gray-400 rounded-sm" />
+    <div className="flex flex-row gap-0.5">
+      {Array.from({ length: size }).map((_, i) => (
+        <div key={i} className="w-2.5 h-2.5 bg-gray-400 rounded-sm shrink-0" />
       ))}
     </div>
   )
@@ -58,8 +57,8 @@ export function ShipPanel({
                 ].join(' ')}
               >
                 {/* Miniaturka statku */}
-                <div className="w-10 flex items-center justify-center shrink-0">
-                  <ShipShape size={def.size} horizontal={true} />
+                <div className="w-16 flex items-center shrink-0">
+                  <ShipShape size={def.size} />
                 </div>
 
                 <div className="flex flex-col min-w-0">
