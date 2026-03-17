@@ -29,7 +29,8 @@
       "mcp__claude_ai_Supabase__execute_sql",
       "Bash(powershell.exe -Command \"& ''C:\\\\Program Files\\\\nodejs\\\\npm.cmd'' run build 2>&1\")",
       "mcp__claude_ai_Supabase__get_logs",
-      "mcp__claude_ai_Supabase__deploy_edge_function"
+      "mcp__claude_ai_Supabase__deploy_edge_function",
+      "mcp__claude_ai_Supabase__get_edge_function"
     ]
   }
 }

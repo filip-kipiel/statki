@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { FLEET, shipCells } from './boardStore'
 import type { PlacedShip } from './boardStore'
+import { checkAndAwardAchievements } from '../lib/achievements'
+import type { AchievementDef } from '../lib/achievements'
 
 export interface Shot {
   id: string
@@ -32,11 +34,13 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
   const [opponentShips, setOpponentShips] = useState<PlacedShip[]>([])
   const [shots, setShots]             = useState<Shot[]>([])
   const [loading, setLoading]         = useState(true)
+  const [rematchGameId,    setRematchGameId]    = useState<string | null>(null)
+  const [newAchievements,  setNewAchievements]  = useState<AchievementDef[]>([])
 
   // Załaduj pełny stan gry przy starcie
   const loadAll = useCallback(async () => {
     const [{ data: gameData }, { data: boardsData }, { data: shotsData }] = await Promise.all([
-      supabase.from('games').select('current_turn,status,winner,winner_points').eq('id', gameId).single(),
+      supabase.from('games').select('current_turn,status,winner,winner_points,rematch_game_id').eq('id', gameId).single(),
       supabase.from('boards').select('player_id,ships').eq('game_id', gameId),
       supabase.from('shots').select('*').eq('game_id', gameId).order('created_at'),
     ])
@@ -45,6 +49,7 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
       setGameStatus(gameData.status as string)
       setWinner(gameData.winner as string | null)
       setWinnerPoints((gameData.winner_points as number | null) ?? null)
+      if (gameData.rematch_game_id) setRematchGameId(gameData.rematch_game_id as string)
     }
     if (boardsData) {
       const mine = boardsData.find(b => b.player_id === myId)
@@ -80,11 +85,12 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
         event: 'UPDATE', schema: 'public', table: 'games',
         filter: `id=eq.${gameId}`,
       }, payload => {
-        const g = payload.new as { current_turn: string; status: string; winner: string | null; winner_points: number | null }
+        const g = payload.new as { current_turn: string; status: string; winner: string | null; winner_points: number | null; rematch_game_id: string | null }
         setCurrentTurn(g.current_turn)
         setGameStatus(g.status)
         setWinner(g.winner)
         setWinnerPoints(g.winner_points ?? null)
+        if (g.rematch_game_id) setRematchGameId(g.rematch_game_id)
       })
       .subscribe()
     return () => { void supabase.removeChannel(ch) }
@@ -133,6 +139,28 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
         p_loser_id:  opponentId,
         p_points:    points,
       })
+
+      // Sprawdź odznaki
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('games_won, games_played')
+        .eq('id', myId).single()
+
+      const allShots2 = [...shots, { player_id: myId, row, col, result }]
+      const myShotsMap  = new Map(allShots2.filter(s => s.player_id === myId).map(s => [`${s.row},${s.col}`, s.result] as const))
+      const oppShotsMap = new Map(allShots2.filter(s => s.player_id === opponentId).map(s => [`${s.row},${s.col}`, s.result] as const))
+
+      const awarded = await checkAndAwardAchievements({
+        gameId,
+        myId,
+        iWon:          true,
+        myShots:       myShotsMap,
+        opponentShots: oppShotsMap,
+        myShips,
+        gamesWon:      (prof?.games_won ?? 0),
+        gamesPlayed:   (prof?.games_played ?? 0),
+      })
+      if (awarded.length > 0) setNewAchievements(awarded)
       return
     }
 
@@ -184,12 +212,28 @@ export function useGame(gameId: string, myId: string, opponentId: string) {
 
   const totalShots = shots.filter(s => s.player_id === myId).length
 
+  // Proponuje rewanż: tworzy nową grę z odwróconymi rolami i zapisuje ID w starej grze
+  async function proposeRematch(): Promise<{ newGameId: string } | null> {
+    const { data, error } = await supabase
+      .from('games')
+      .insert({ player1_id: myId, player2_id: opponentId, status: 'placement' })
+      .select('id').single()
+    if (error || !data) return null
+    const newId = data.id as string
+    await supabase.from('games').update({ rematch_game_id: newId }).eq('id', gameId)
+    setRematchGameId(newId)
+    return { newGameId: newId }
+  }
+
   return {
     loading, isMyTurn, gameStatus, winner, winnerPoints,
     myShips, opponentShips,
     myShots, opponentShots,
     sunkOpponentCells, sunkMyCells,
     sunkOpponentCount, totalShots,
+    rematchGameId,
+    newAchievements,
     shoot,
+    proposeRematch,
   }
 }

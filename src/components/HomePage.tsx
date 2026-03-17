@@ -14,11 +14,12 @@ interface Props {
   isAdmin:    boolean
   onNewGame:  () => void
   onBotGame:  (difficulty: BotDifficulty) => void
+  onProfile:  () => void
   onAdmin:    () => void
   onSignOut:  () => void
 }
 
-export function HomePage({ username, isAdmin, onNewGame, onBotGame, onAdmin, onSignOut }: Props) {
+export function HomePage({ username, isAdmin, onNewGame, onBotGame, onProfile, onAdmin, onSignOut }: Props) {
   const [showBoard,    setShowBoard]    = useState(false)
   const [board,        setBoard]        = useState<Profile[]>([])
   const [loading,      setLoading]      = useState(false)
@@ -84,6 +85,7 @@ export function HomePage({ username, isAdmin, onNewGame, onBotGame, onAdmin, onS
                 ['easy',   '🟢 Łatwy',   'Bot strzela losowo'],
                 ['medium', '🟡 Średni',  'Co 4. strzał pewne trafienie'],
                 ['hard',   '🔴 Trudny',  'Co 2. strzał pewne trafienie'],
+                ['hunter', '💀 Hunter',  'Inteligentny – śledzi i niszczy statki'],
               ] as const).map(([diff, label, desc]) => (
                 <button
                   key={diff}
@@ -103,6 +105,13 @@ export function HomePage({ username, isAdmin, onNewGame, onBotGame, onAdmin, onS
           className="w-full py-4 bg-gray-800 hover:bg-gray-700 active:scale-95 text-white font-bold text-lg rounded-2xl transition-all"
         >
           {showBoard ? '▲ Ukryj ranking' : '🏆 POKAŻ LEADERBOARD'}
+        </button>
+
+        <button
+          onClick={onProfile}
+          className="w-full py-3 bg-gray-900 hover:bg-gray-800 border border-gray-700 text-gray-400 hover:text-white font-medium text-sm rounded-xl transition-all"
+        >
+          👤 Mój profil
         </button>
 
         {isAdmin && (

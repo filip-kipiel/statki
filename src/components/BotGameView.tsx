@@ -21,6 +21,7 @@ const DIFFICULTY_LABEL: Record<BotDifficulty, string> = {
   easy:   '🟢 Łatwy',
   medium: '🟡 Średni',
   hard:   '🔴 Trudny',
+  hunter: '💀 Hunter',
 }
 
 const TOTAL_FLEET = FLEET.reduce((s, d) => s + d.count, 0)
@@ -37,12 +38,41 @@ export function BotGameView({ myShips, difficulty, myName, onBack }: Props) {
 
   const startRef = useRef<number>(Date.now())
   const [elapsed, setElapsed] = useState(0)
-
   useEffect(() => {
     if (gameStatus === 'finished') return
     const id = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000)
     return () => clearInterval(id)
   }, [gameStatus])
+
+  // Timer tury (30s)
+  const TURN_SECONDS = 30
+  const [turnTimer, setTurnTimer] = useState(TURN_SECONDS)
+  const turnTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  useEffect(() => {
+    if (gameStatus !== 'playing') return
+    if (isMyTurn) {
+      setTurnTimer(TURN_SECONDS)
+      turnTimerRef.current = setInterval(() => {
+        setTurnTimer(prev => {
+          if (prev <= 1) {
+            const all: [number, number][] = []
+            for (let r = 0; r < 10; r++)
+              for (let c = 0; c < 10; c++)
+                if (!myShots.has(`${r},${c}`)) all.push([r, c])
+            if (all.length > 0) {
+              const [r, c] = all[Math.floor(Math.random() * all.length)]
+              shoot(r, c)
+            }
+            return TURN_SECONDS
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } else {
+      if (turnTimerRef.current) clearInterval(turnTimerRef.current)
+    }
+    return () => { if (turnTimerRef.current) clearInterval(turnTimerRef.current) }
+  }, [isMyTurn, gameStatus])
 
   // Powiadomienie o zatopieniu
   const prevSunkRef = useRef(0)
@@ -125,16 +155,21 @@ export function BotGameView({ myShips, difficulty, myName, onBack }: Props) {
 
       <div className="text-center">
         <h1 className="text-2xl font-bold text-white">⚓ {myName} vs Bot ({DIFFICULTY_LABEL[difficulty]})</h1>
-        <div className={`mt-2 px-4 py-1.5 rounded-full text-sm font-semibold inline-block transition-all ${
+        <div className={`mt-2 px-4 py-1.5 rounded-full text-sm font-semibold inline-flex items-center gap-2 transition-all ${
           isMyTurn
             ? 'bg-green-900/60 text-green-300 border border-green-700'
             : 'bg-gray-800 text-gray-400 border border-gray-700'
         }`}>
           {isMyTurn ? '🎯 Twoja tura – strzelaj!' : '🤖 Bot myśli…'}
+          {isMyTurn && (
+            <span className={`font-mono font-bold ${turnTimer <= 10 ? 'text-red-400 animate-pulse' : 'text-green-400'}`}>
+              {turnTimer}s
+            </span>
+          )}
         </div>
       </div>
 
-      <div className="flex gap-8 items-start flex-wrap justify-center">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 items-center sm:items-start justify-center">
         <GameBoard
           label="Moja flota"
           ships={ships}

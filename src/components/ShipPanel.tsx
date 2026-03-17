@@ -28,27 +28,27 @@ export function ShipPanel({
   placed, selected, horizontal, allPlaced,
   onSelect, onToggleOrientation, onRandomize, onReset, onReady,
 }: Props) {
+  const remaining = FLEET.reduce((s, d) => s + d.count, 0) - placed.length
+
   return (
-    <div className="flex flex-col gap-4 w-52">
-      <h2 className="text-white font-bold text-lg">Twoja flota</h2>
+    // Na mobile: poziomy pasek na dole; na sm+: pionowy panel z boku
+    <div className="flex flex-row sm:flex-col flex-wrap gap-2 sm:gap-4 sm:w-52 w-full">
 
       {/* Lista statków */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-row sm:flex-col gap-1 sm:gap-2 flex-wrap">
         {FLEET.map(def => {
           const placedCount = placed.filter(p => p.defId === def.id).length
-          const totalCount  = def.count
-
-          return Array.from({ length: totalCount }).map((_, idx) => {
+          return Array.from({ length: def.count }).map((_, idx) => {
             const isPlaced   = idx < placedCount
             const isSelected = !isPlaced && selected?.id === def.id && idx === placedCount
-
             return (
               <button
                 key={`${def.id}-${idx}`}
                 disabled={isPlaced}
                 onClick={() => !isPlaced && onSelect(def)}
+                title={def.name}
                 className={[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg border transition-all text-left',
+                  'flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border transition-all text-left',
                   isPlaced
                     ? 'border-gray-700 bg-gray-800 opacity-40 cursor-default'
                     : isSelected
@@ -56,72 +56,59 @@ export function ShipPanel({
                       : 'border-gray-600 bg-gray-800 hover:border-gray-400 cursor-pointer',
                 ].join(' ')}
               >
-                {/* Miniaturka statku */}
-                <div className="w-16 flex items-center shrink-0">
+                <div className="flex items-center shrink-0">
                   <ShipShape size={def.size} />
                 </div>
-
-                <div className="flex flex-col min-w-0">
-                  <span className="text-white text-sm font-medium">{def.name}</span>
-                  <span className="text-gray-400 text-xs">{def.size} {def.size === 1 ? 'pole' : def.size < 5 ? 'pola' : 'pól'}</span>
-                </div>
-
-                {/* Znacznik ukończenia */}
-                {isPlaced && <span className="ml-auto text-green-400 text-lg">✓</span>}
+                <span className="text-white text-xs sm:text-sm font-medium hidden sm:block">{def.name}</span>
+                {isPlaced && <span className="ml-auto text-green-400 text-sm">✓</span>}
               </button>
             )
           })
         })}
       </div>
 
-      {/* Przycisk obrotu */}
-      {selected && (
-        <div className="flex flex-col gap-1">
+      {/* Akcje */}
+      <div className="flex flex-row sm:flex-col gap-1 sm:gap-2 items-center sm:items-stretch flex-wrap">
+        {selected && (
           <button
             onClick={onToggleOrientation}
-            className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-yellow-600 bg-yellow-900/40 text-yellow-300 hover:bg-yellow-900/70 transition-all text-sm font-medium"
+            className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-yellow-600 bg-yellow-900/40 text-yellow-300 hover:bg-yellow-900/70 transition-all text-xs sm:text-sm font-medium"
           >
             <span>↻</span>
-            <span>OBRÓĆ (R)</span>
-            <span className="ml-auto text-xs opacity-70">{horizontal ? '→' : '↓'}</span>
+            <span className="hidden sm:inline">OBRÓĆ (R)</span>
+            <span className="text-xs opacity-70">{horizontal ? '→' : '↓'}</span>
           </button>
-        </div>
-      )}
+        )}
 
-      {/* Separator */}
-      <div className="border-t border-gray-700" />
-
-      {/* Losowe rozmieszczenie */}
-      <button
-        onClick={onRandomize}
-        className="px-3 py-2 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-all text-sm"
-      >
-        🎲 LOSOWE ROZMIESZCZENIE
-      </button>
-
-      {/* Reset */}
-      {placed.length > 0 && (
         <button
-          onClick={onReset}
-          className="px-3 py-2 rounded-lg border border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700 transition-all text-sm"
+          onClick={onRandomize}
+          className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700 transition-all text-xs sm:text-sm"
         >
-          ✕ RESETUJ
+          🎲 <span className="hidden sm:inline">LOSOWE</span>
         </button>
-      )}
 
-      {/* Przycisk GOTOWY */}
-      <button
-        disabled={!allPlaced}
-        onClick={onReady}
-        className={[
-          'mt-2 px-4 py-3 rounded-xl font-bold text-base transition-all',
-          allPlaced
-            ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/50 cursor-pointer'
-            : 'bg-gray-700 text-gray-500 cursor-not-allowed',
-        ].join(' ')}
-      >
-        {allPlaced ? '✅ GOTOWY!' : `Zostało ${placed.length === 0 ? 'rozstawić statki' : `jeszcze ${FLEET.reduce((s, d) => s + d.count, 0) - placed.length}`}`}
-      </button>
+        {placed.length > 0 && (
+          <button
+            onClick={onReset}
+            className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-gray-600 bg-gray-800 text-gray-400 hover:bg-gray-700 transition-all text-xs sm:text-sm"
+          >
+            ✕ <span className="hidden sm:inline">RESETUJ</span>
+          </button>
+        )}
+
+        <button
+          disabled={!allPlaced}
+          onClick={onReady}
+          className={[
+            'px-3 sm:px-4 py-2 sm:py-3 rounded-xl font-bold text-sm sm:text-base transition-all',
+            allPlaced
+              ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/50 cursor-pointer'
+              : 'bg-gray-700 text-gray-500 cursor-not-allowed',
+          ].join(' ')}
+        >
+          {allPlaced ? '✅ GOTOWY!' : `(${remaining})`}
+        </button>
+      </div>
     </div>
   )
 }

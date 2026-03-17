@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGame } from '../store/useGame'
+import { useChat } from '../store/useChat'
 import { GameBoard } from './GameBoard'
+import { ChatBox } from './ChatBox'
 import { FLEET } from '../store/boardStore'
 
 interface Props {
-  gameId: string
-  myId: string
-  opponentId: string
-  myName: string
+  gameId:       string
+  myId:         string
+  opponentId:   string
+  myName:       string
+  opponentName: string
   onBackToLobby: () => void
+  onRematch:    (newGameId: string, iAmPlayer1: boolean) => void
 }
 
 // Formatuj sekundy jako "1m 23s"
@@ -17,15 +21,18 @@ function formatDuration(seconds: number): string {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }
 
-export function GameView({ gameId, myId, opponentId, myName, onBackToLobby }: Props) {
+export function GameView({ gameId, myId, opponentId, myName, opponentName, onBackToLobby, onRematch }: Props) {
   const {
     loading, isMyTurn, gameStatus, winner, winnerPoints,
     myShips, opponentShips,
     myShots, opponentShots,
     sunkOpponentCells, sunkMyCells,
     sunkOpponentCount, totalShots,
-    shoot,
+    rematchGameId, newAchievements, shoot, proposeRematch,
   } = useGame(gameId, myId, opponentId)
+
+  const { messages, sending, sendMessage } = useChat(gameId, myId)
+  const [rematchProposed, setRematchProposed] = useState(false)
 
   // Pomiar czasu gry
   const startRef = useRef<number>(Date.now())
@@ -35,6 +42,37 @@ export function GameView({ gameId, myId, opponentId, myName, onBackToLobby }: Pr
     const id = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000)
     return () => clearInterval(id)
   }, [gameStatus])
+
+  // Timer tury (30s) – aktywny tylko gdy to moja tura
+  const TURN_SECONDS = 30
+  const [turnTimer, setTurnTimer] = useState(TURN_SECONDS)
+  const turnTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  useEffect(() => {
+    if (gameStatus !== 'playing') return
+    if (isMyTurn) {
+      setTurnTimer(TURN_SECONDS)
+      turnTimerRef.current = setInterval(() => {
+        setTurnTimer(prev => {
+          if (prev <= 1) {
+            // Czas minął – auto-strzał w losowe pole
+            const all: [number, number][] = []
+            for (let r = 0; r < 10; r++)
+              for (let c = 0; c < 10; c++)
+                if (!myShots.has(`${r},${c}`)) all.push([r, c])
+            if (all.length > 0) {
+              const [r, c] = all[Math.floor(Math.random() * all.length)]
+              void shoot(r, c)
+            }
+            return TURN_SECONDS
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } else {
+      if (turnTimerRef.current) clearInterval(turnTimerRef.current)
+    }
+    return () => { if (turnTimerRef.current) clearInterval(turnTimerRef.current) }
+  }, [isMyTurn, gameStatus])
 
   // Powiadomienie o zatopieniu – pokazuj 2s gdy liczba rośnie
   const prevSunkRef = useRef(0)
@@ -109,12 +147,54 @@ export function GameView({ gameId, myId, opponentId, myName, onBackToLobby }: Pr
             />
           </div>
 
-          <button
-            onClick={onBackToLobby}
-            className="w-full px-6 py-4 bg-blue-700 hover:bg-blue-600 text-white font-bold text-lg rounded-xl transition-all shadow-lg shadow-blue-900/30"
-          >
-            🔄 NOWA GRA
-          </button>
+          {/* Nowe odznaki */}
+          {newAchievements.length > 0 && (
+            <div className="w-full flex flex-col gap-2">
+              <p className="text-yellow-400 font-bold text-center">🏅 Nowe odznaki!</p>
+              {newAchievements.map(a => (
+                <div key={a.id} className="flex items-center gap-3 px-4 py-2 bg-yellow-900/30 border border-yellow-700/50 rounded-xl">
+                  <span className="text-2xl">{a.emoji}</span>
+                  <div>
+                    <p className="text-white font-bold text-sm">{a.name}</p>
+                    <p className="text-yellow-300 text-xs">{a.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Rewanż */}
+          <div className="w-full flex flex-col gap-2">
+            {/* Przeciwnik zaproponował rewanż */}
+            {rematchGameId && !rematchProposed && (
+              <button
+                onClick={() => onRematch(rematchGameId, false)}
+                className="w-full px-6 py-4 bg-green-700 hover:bg-green-600 text-white font-bold text-lg rounded-xl transition-all animate-pulse"
+              >
+                ⚔️ Rewanż od {opponentName}! Akceptuj
+              </button>
+            )}
+            {/* Zaproponuj rewanż */}
+            {!rematchGameId && (
+              <button
+                onClick={async () => {
+                  setRematchProposed(true)
+                  const r = await proposeRematch()
+                  if (r) onRematch(r.newGameId, true)
+                }}
+                disabled={rematchProposed}
+                className="w-full px-6 py-4 bg-yellow-700 hover:bg-yellow-600 disabled:bg-gray-700 text-white font-bold text-lg rounded-xl transition-all"
+              >
+                {rematchProposed ? '⏳ Czekam na rewanż…' : '⚔️ REWANŻ'}
+              </button>
+            )}
+            <button
+              onClick={onBackToLobby}
+              className="w-full px-6 py-4 bg-blue-700 hover:bg-blue-600 text-white font-bold text-lg rounded-xl transition-all shadow-lg shadow-blue-900/30"
+            >
+              🔄 NOWA GRA
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -134,17 +214,22 @@ export function GameView({ gameId, myId, opponentId, myName, onBackToLobby }: Pr
       {/* Nagłówek */}
       <div className="text-center">
         <h1 className="text-2xl font-bold text-white">⚓ {myName}</h1>
-        <div className={`mt-2 px-4 py-1.5 rounded-full text-sm font-semibold inline-block transition-all ${
+        <div className={`mt-2 px-4 py-1.5 rounded-full text-sm font-semibold inline-flex items-center gap-2 transition-all ${
           isMyTurn
             ? 'bg-green-900/60 text-green-300 border border-green-700'
             : 'bg-gray-800 text-gray-400 border border-gray-700'
         }`}>
           {isMyTurn ? '🎯 Twoja tura – strzelaj!' : '⏳ Tura przeciwnika…'}
+          {isMyTurn && (
+            <span className={`font-mono font-bold ${turnTimer <= 10 ? 'text-red-400 animate-pulse' : 'text-green-400'}`}>
+              {turnTimer}s
+            </span>
+          )}
         </div>
       </div>
 
       {/* Dwie plansze */}
-      <div className="flex gap-8 items-start flex-wrap justify-center">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 items-center sm:items-start justify-center">
         <GameBoard
           label="Moja flota"
           ships={myShips}
@@ -170,6 +255,16 @@ export function GameView({ gameId, myId, opponentId, myName, onBackToLobby }: Pr
         <span>Strzały: <strong className="text-gray-300">{totalShots}</strong></span>
         <span>Czas: <strong className="text-gray-300">{formatDuration(elapsed)}</strong></span>
       </div>
+
+      {/* Czat */}
+      <ChatBox
+        messages={messages}
+        myId={myId}
+        myName={myName}
+        opponentName={opponentName}
+        sending={sending}
+        onSend={sendMessage}
+      />
     </div>
   )
 }

@@ -7,7 +7,7 @@ export type PlayerRole = 'player1' | 'player2'
 interface Props {
   userId:      string
   defaultName: string
-  onGameReady: (gameId: string, playerId: string, playerName: string, role: PlayerRole, opponentId: string) => void
+  onGameReady: (gameId: string, playerId: string, playerName: string, role: PlayerRole, opponentId: string, opponentName: string) => void
   onBack:      () => void
 }
 
@@ -27,10 +27,11 @@ export function Lobby({ userId, defaultName, onGameReady, onBack }: Props) {
 
     let done = false
 
-    function transition(player2Id: string) {
+    async function transition(player2Id: string) {
       if (done) return
       done = true
-      onReadyRef.current(gameId!, userId, defaultName, 'player1', player2Id)
+      const { data: p2 } = await supabase.from('profiles').select('username').eq('id', player2Id).single()
+      onReadyRef.current(gameId!, userId, defaultName, 'player1', player2Id, p2?.username ?? 'Gracz')
     }
 
     const channel = supabase
@@ -40,7 +41,7 @@ export function Lobby({ userId, defaultName, onGameReady, onBack }: Props) {
       }, payload => {
         const g = payload.new as { id: string; status: string; player2_id: string }
         if (g.id === gameId && g.status === 'placement' && g.player2_id) {
-          transition(g.player2_id)
+          void transition(g.player2_id)
         }
       })
       .subscribe()
@@ -50,7 +51,7 @@ export function Lobby({ userId, defaultName, onGameReady, onBack }: Props) {
       const { data } = await supabase
         .from('games').select('status, player2_id').eq('id', gameId).single()
       if (data?.status === 'placement' && data.player2_id) {
-        transition(data.player2_id as string)
+        void transition(data.player2_id as string)
       }
     }, 2000)
 
@@ -108,7 +109,8 @@ export function Lobby({ userId, defaultName, onGameReady, onBack }: Props) {
       setLoading(false); return
     }
 
-    onGameReady(game.id as string, userId, defaultName, 'player2', game.player1_id as string)
+    const { data: p1 } = await supabase.from('profiles').select('username').eq('id', game.player1_id as string).single()
+    onGameReady(game.id as string, userId, defaultName, 'player2', game.player1_id as string, p1?.username ?? 'Gracz')
   }
 
   return (

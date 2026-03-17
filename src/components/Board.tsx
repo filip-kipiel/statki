@@ -21,7 +21,7 @@ function cellClass(
   preview: PreviewCell[],
   hasSelected: boolean,
 ): string {
-  const base = 'w-9 h-9 flex items-center justify-center border border-blue-900 select-none transition-all duration-100 text-sm font-bold rounded-sm'
+  const base = 'w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center border border-blue-900 select-none transition-all duration-100 text-xs sm:text-sm font-bold rounded-sm'
 
   // Komórka podglądu (hover statku)
   const previewCell = preview.find(p => `${p.row},${p.col}` === key)
@@ -53,9 +53,9 @@ export function Board({
       onMouseLeave={onMouseLeave}
     >
       {/* Nagłówek kolumn */}
-      <div className="flex ml-9 mb-1">
+      <div className="flex ml-6 sm:ml-9 mb-1">
         {COL_LABELS.map(label => (
-          <div key={label} className="w-9 text-center text-xs font-semibold text-blue-300">
+          <div key={label} className="w-7 sm:w-9 text-center text-[10px] sm:text-xs font-semibold text-blue-300">
             {label}
           </div>
         ))}
@@ -65,7 +65,7 @@ export function Board({
       {ROW_LABELS.map((rowLabel, ri) => (
         <div key={ri} className="flex items-center mb-0.5">
           {/* Etykieta wiersza */}
-          <div className="w-8 text-center text-xs font-semibold text-blue-300 mr-1">
+          <div className="w-5 sm:w-8 text-center text-[10px] sm:text-xs font-semibold text-blue-300 mr-0.5 sm:mr-1">
             {rowLabel}
           </div>
 

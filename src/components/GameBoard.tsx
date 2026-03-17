@@ -31,7 +31,7 @@ function cellClass(
   showShips: boolean,
   interactive: boolean,
 ): string {
-  const base = 'w-9 h-9 flex items-center justify-center border select-none transition-colors duration-100 text-sm rounded-sm'
+  const base = 'w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center border select-none transition-colors duration-100 text-xs sm:text-sm rounded-sm'
 
   // Zatopiony statek – ciemnopomarańczowe tło
   if (sunkCells.has(key)) return `${base} bg-orange-800 border-orange-600 cursor-default`
@@ -55,16 +55,16 @@ export function GameBoard({ label, ships, showShips, shots, sunkCells = new Set(
       <p className="text-sm font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
       <div className="bg-blue-950 p-3 rounded-xl border border-blue-800 shadow-xl">
         {/* Nagłówek kolumn */}
-        <div className="flex ml-8 mb-1">
+        <div className="flex ml-6 sm:ml-8 mb-1">
           {COL_LABELS.map(l => (
-            <div key={l} className="w-9 text-center text-xs font-semibold text-blue-400">{l}</div>
+            <div key={l} className="w-7 sm:w-9 text-center text-[10px] sm:text-xs font-semibold text-blue-400">{l}</div>
           ))}
         </div>
 
         {/* Wiersze */}
         {ROW_LABELS.map((rowLabel, ri) => (
           <div key={ri} className="flex items-center mb-0.5">
-            <div className="w-7 text-center text-xs font-semibold text-blue-400 mr-1">{rowLabel}</div>
+            <div className="w-5 sm:w-7 text-center text-[10px] sm:text-xs font-semibold text-blue-400 mr-0.5 sm:mr-1">{rowLabel}</div>
             {COL_LABELS.map((_, ci) => {
               const key = `${ri},${ci}`
               const shot = shots.get(key)

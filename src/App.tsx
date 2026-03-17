@@ -9,18 +9,20 @@ import { Board } from './components/Board'
 import { ShipPanel } from './components/ShipPanel'
 import { GameView } from './components/GameView'
 import { BotGameView } from './components/BotGameView'
+import { ProfilePage } from './components/ProfilePage'
 import { usePlacement } from './store/usePlacement'
 import type { PlacedShip } from './store/boardStore'
 import type { BotDifficulty } from './store/useBotGame'
 
-type Phase = 'auth' | 'home' | 'admin' | 'lobby' | 'placement' | 'waiting_opponent' | 'playing' | 'bot'
+type Phase = 'auth' | 'home' | 'admin' | 'lobby' | 'placement' | 'waiting_opponent' | 'playing' | 'bot' | 'profile'
 
 interface GameSession {
-  gameId:      string
-  playerId:    string
-  playerName:  string
-  role:        PlayerRole
-  opponentId:  string
+  gameId:       string
+  playerId:     string
+  playerName:   string
+  role:         PlayerRole
+  opponentId:   string
+  opponentName: string
 }
 
 export default function App() {
@@ -90,9 +92,9 @@ export default function App() {
   // --- Lobby callback – oboje gracze przechodzą do rozstawiania ---
   function handleGameReady(
     gameId: string, playerId: string, playerName: string,
-    role: PlayerRole, opponentId: string,
+    role: PlayerRole, opponentId: string, opponentName: string,
   ) {
-    setSession({ gameId, playerId, playerName, role, opponentId })
+    setSession({ gameId, playerId, playerName, role, opponentId, opponentName })
     placement.reset()
     setPhase('placement')
   }
@@ -150,6 +152,7 @@ export default function App() {
       <HomePage
         username={username}
         isAdmin={isAdmin}
+        onProfile={() => setPhase('profile')}
         onNewGame={() => { setIsBotGame(false); setPhase('lobby') }}
         onBotGame={(diff) => {
           setBotDifficulty(diff)
@@ -185,7 +188,7 @@ export default function App() {
             {session?.playerName} · Rozstaw swoją flotę
           </p>
         </div>
-        <div className="flex gap-8 items-start">
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 items-center sm:items-start w-full max-w-xl sm:max-w-none">
           <Board
             occupiedCells={placement.getOccupiedSet()}
             preview={placement.preview}
@@ -232,6 +235,17 @@ export default function App() {
     )
   }
 
+  // --- PROFIL ---
+  if (phase === 'profile') {
+    return (
+      <ProfilePage
+        userId={userId!}
+        username={username}
+        onBack={() => setPhase('home')}
+      />
+    )
+  }
+
   // --- GRA Z BOTEM ---
   if (phase === 'bot') {
     return (
@@ -255,10 +269,24 @@ export default function App() {
       myId={session!.playerId}
       opponentId={session!.opponentId}
       myName={session!.playerName}
+      opponentName={session!.opponentName}
       onBackToLobby={() => {
         setSession(null)
         placement.reset()
         setPhase('home')
+      }}
+      onRematch={(newGameId, iAmPlayer1) => {
+        const s = session!
+        setSession({
+          gameId:       newGameId,
+          playerId:     s.playerId,
+          playerName:   s.playerName,
+          role:         iAmPlayer1 ? 'player1' : 'player2',
+          opponentId:   s.opponentId,
+          opponentName: s.opponentName,
+        })
+        placement.reset()
+        setPhase('placement')
       }}
     />
   )
