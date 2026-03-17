@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
-import {
-  FLEET, PlacedShip, ShipDef,
-  isValidPlacement, shipCells, generateRandomPlacement,
-} from './boardStore'
+import { FLEET, isValidPlacement, shipCells, generateRandomPlacement } from './boardStore'
+import type { PlacedShip, ShipDef } from './boardStore'
 
 export interface PreviewCell {
   row: number

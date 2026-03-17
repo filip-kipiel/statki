@@ -1,4 +1,5 @@
-import { FLEET, PlacedShip, ShipDef } from '../store/boardStore'
+import { FLEET } from '../store/boardStore'
+import type { PlacedShip, ShipDef } from '../store/boardStore'
 
 interface Props {
   placed: PlacedShip[]
